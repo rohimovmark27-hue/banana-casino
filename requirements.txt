@@ -1,0 +1,18 @@
+# Web Framework
+flask==2.3.3
+
+# Telegram Bot
+python-telegram-bot==20.5
+
+# CORS для Telegram Mini App
+flask-cors==4.0.0
+
+# Обработка изображений (для аватарок)
+pillow==10.0.1
+
+# База данных (встроена в Python)
+# sqlite3
+
+# Дата и время (встроены)
+# datetime
+

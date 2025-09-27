@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎰 Banana Casino</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 20px; min-height: 100vh;
+        }
+        .container { max-width: 400px; margin: 0 auto; }
+        .header { 
+            background: rgba(255,255,255,0.1); 
+            padding: 15px; border-radius: 15px; 
+            margin-bottom: 20px; display: flex; 
+            justify-content: space-between; align-items: center;
+        }
+        .balance { font-size: 1.5em; font-weight: bold; }
+        .game-card { 
+            background: rgba(255,255,255,0.15); 
+            padding: 20px; margin: 10px 0; 
+            border-radius: 10px; text-align: center;
+            cursor: pointer; transition: transform 0.3s;
+        }
+        .game-card:hover { transform: scale(1.05); }
+        .modal { 
+            position: fixed; top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); 
+            display: flex; align-items: center; 
+            justify-content: center; 
+        }
+        .modal-content { 
+            background: #333; padding: 20px; 
+            border-radius: 10px; width: 90%; max-width: 300px;
+        }
+        input, button { 
+            width: 100%; padding: 10px; margin: 5px 0; 
+            border: none; border-radius: 5px; 
+        }
+        button { background: #4CAF50; color: white; cursor: pointer; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎰 Banana Casino</h1>
+            <div class="balance">
+                <span id="bananaBalance">1000</span>🍌
+            </div>
+        </div>
+
+        <div class="game-card" onclick="playSlots()">
+            <h3>🎰 Банановые слоты</h3>
+            <p>Ставка: 10🍌 | Джекпот: 100🍌</p>
+        </div>
+
+        <div class="game-card" onclick="showTransferModal()">
+            <h3>📤 Перевод бананов</h3>
+            <p>Перевод друзьям с комиссией 5%</p>
+        </div>
+
+        <div class="game-card" onclick="showAdminPanel()">
+            <h3>⚙️ Админ панель</h3>
+            <p>Только для администраторов</p>
+        </div>
+
+        <div class="game-card" onclick="claimDailyBonus()">
+            <h3>🎁 Ежедневный бонус</h3>
+            <p>Получите 50🍌 каждый день!</p>
+        </div>
+    </div>
+
+    <div id="transferModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>📤 Перевод бананов</h3>
+            <input type="number" id="transferAmount" placeholder="Сумма" min="10">
+            <input type="number" id="transferUserId" placeholder="ID получателя">
+            <button onclick="executeTransfer()">Перевести</button>
+            <button onclick="hideModal('transferModal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="adminModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>⚙️ Админ панель</h3>
+            <input type="number" id="adminUserId" placeholder="ID пользователя">
+            <input type="number" id="adminAmount" placeholder="Количество бананов">
+            <button onclick="adminAddBananas()">Выдать бананы</button>
+            <button onclick="hideModal('adminModal')">Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        let userId = tg.initDataUnsafe?.user?.id;
+        let isAdmin = false;
+
+        tg.expand();
+        loadUserData();
+
+        async function loadUserData() {
+            if (!userId) return;
+            
+            const response = await fetch(`/api/user/${userId}`);
+            const user = await response.json();
+            document.getElementById('bananaBalance').textContent = user.bananas;
+            
+            const adminCheck = await fetch(`/api/user/${userId}/is-admin`);
+            const adminData = await adminCheck.json();
+            isAdmin = adminData.is_admin;
+        }
+
+        async function playSlots() {
+            const response = await fetch('/api/game/slots', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: userId, bet_amount: 10})
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert(`Результат: ${result.result.join(' ')}\nВыигрыш: ${result.win_amount}🍌`);
+                loadUserData();
+            } else {
+                alert(result.message);
+            }
+        }
+
+        function showTransferModal() {
+            document.getElementById('transferModal').classList.remove('hidden');
+        }
+
+        function showAdminPanel() {
+            if (!isAdmin) {
+                alert('❌ Доступ только для администраторов');
+                return;
+            }
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+
+        async function executeTransfer() {
+            const amount = parseInt(document.getElementById('transferAmount').value);
+            const toUserId = parseInt(document.getElementById('transferUserId').value);
+            
+            const response = await fetch('/api/transfer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    from_user_id: userId,
+                    to_user_id: toUserId,
+                    amount: amount
+                })
+            });
+            
+            const result = await response.json();
+            alert(result.message);
+            if (result.success) {
+                hideModal('transferModal');
+                loadUserData();
+            }
+        }
+
+        async function adminAddBananas() {
+            const targetUserId = parseInt(document.getElementById('adminUserId').value);
+            const amount = parseInt(document.getElementById('adminAmount').value);
+            
+            const response = await fetch('/api/admin/add-bananas', {
+                method: 'POST',
+
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    admin_id: userId,
+                    target_user_id: targetUserId,
+                    amount: amount,
+                    reason: 'Админ выдача'
+                })
+            });
+            
+            const result = await response.json();
+            alert(result.message);
+            if (result.success) {
+                hideModal('adminModal');
+            }
+        }
+
+        async function claimDailyBonus() {
+            alert('🎁 Ежедневный бонус: 50🍌 добавлены!');
+            // Здесь будет логика бонуса
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
